@@ -139,6 +139,7 @@ enum ConnectedBatteryDeviceInventory {
                 transport: transport,
                 appleBatterySnapshots: appleBatterySnapshots
             )
+            ?? mchoseBatteryLevel(hidDevice: hidDevice, vendorID: vendorID?.intValue)
 
         guard let batteryLevel else {
             return nil
@@ -175,6 +176,18 @@ enum ConnectedBatteryDeviceInventory {
             vendorID: vendorID.intValue,
             productID: productID.intValue
         )
+    }
+
+    private static func mchoseBatteryLevel(hidDevice: IOHIDDevice, vendorID: Int?) -> Int? {
+        let primaryUsagePage: NSNumber? = getProperty(kIOHIDPrimaryUsagePageKey, from: hidDevice)
+        guard MChoseBattery.isConfigurationInterface(
+            vendorID: vendorID,
+            primaryUsagePage: primaryUsagePage?.intValue
+        ) else {
+            return nil
+        }
+
+        return MChoseBattery.readBatteryLevel(from: hidDevice)
     }
 
     private static func getProperty<T>(_ key: String, from device: IOHIDDevice) -> T? {
