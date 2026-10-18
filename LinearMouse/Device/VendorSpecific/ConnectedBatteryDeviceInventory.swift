@@ -65,12 +65,14 @@ enum ConnectedBatteryDeviceInventory {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerSetDeviceMatching(manager, nil)
 
-        guard IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIOReturnSuccess else {
-            return []
-        }
+        // Opening every device fails without Input Monitoring access. Device
+        // properties and vendor interfaces such as MCHOSE's are still readable.
+        let isOpen = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIOReturnSuccess
 
         defer {
-            IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            if isOpen {
+                IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            }
         }
 
         guard let hidDevices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else {
