@@ -26,6 +26,14 @@ enum MChoseBattery {
         let isCharging: Bool
     }
 
+    /// The A7X Ultra reports a value at offset 9 that never changes; its live
+    /// battery level sits at offset 11. Other models use offset 9 as documented.
+    private static let a7xUltraProductID = 0x4011
+
+    private static func batteryOffset(productID: Int) -> Int {
+        productID == a7xUltraProductID ? 11 : 9
+    }
+
     static func isConfigurationInterface(vendorID: Int?, primaryUsagePage: Int?) -> Bool {
         guard let vendorID, let primaryUsagePage else {
             return false
@@ -43,7 +51,7 @@ enum MChoseBattery {
     /// Parses a raw `0x11 0x06` reply. Returns nil for replies to other commands
     /// and for the empty frames the dongle sends before the mouse has answered.
     static func parseStatus(_ report: [UInt8]) -> Status? {
-        guard report.count >= 13,
+        guard report.count >= 14,
               report[0] == shortReportID,
               report[1] == statusCommand ^ 0xFF else {
             return nil
@@ -53,13 +61,14 @@ enum MChoseBattery {
         guard vendorID != 0 else {
             return nil
         }
-        let batteryLevel = Int(payload[9])
+        let productID = Int(payload[2]) | Int(payload[3]) << 8
+        let batteryLevel = Int(payload[batteryOffset(productID: productID)])
         guard (0 ... 100).contains(batteryLevel) else {
             return nil
         }
         return Status(
             vendorID: vendorID,
-            productID: Int(payload[2]) | Int(payload[3]) << 8,
+            productID: productID,
             isConnected: payload[8] & connectedFlag != 0,
             batteryLevel: batteryLevel,
             isCharging: payload[10] != 0

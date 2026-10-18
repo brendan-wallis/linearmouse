@@ -5,7 +5,7 @@
 import XCTest
 
 final class MChoseBatteryTests: XCTestCase {
-    /// A reply captured from an A7X Ultra on its 2.4 GHz dongle at 91 %.
+    /// A reply captured from an A7X Ultra on its 2.4 GHz dongle at 98 %.
     private let a7xUltraReply: [UInt8] = [
         0x11, 0xF9, 0xC8, 0xC7, 0xEE, 0xBF, 0xE1, 0xFA, 0xFC, 0xFF, 0xF6, 0xA4, 0xFF, 0x9D,
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
@@ -14,8 +14,15 @@ final class MChoseBatteryTests: XCTestCase {
     func testParsesStatusReply() {
         XCTAssertEqual(
             MChoseBattery.parseStatus(a7xUltraReply),
-            .init(vendorID: 0x3837, productID: 0x4011, isConnected: true, batteryLevel: 91, isCharging: false)
+            .init(vendorID: 0x3837, productID: 0x4011, isConnected: true, batteryLevel: 98, isCharging: false)
         )
+    }
+
+    func testOtherModelsReadBatteryAtDocumentedOffset() {
+        var reply = a7xUltraReply
+        reply[4] = 0x20 ^ 0xFF
+        reply[5] = 0x10 ^ 0xFF
+        XCTAssertEqual(MChoseBattery.parseStatus(reply)?.batteryLevel, 91)
     }
 
     func testIgnoresEmptyFrameBeforeMouseAnswers() {
