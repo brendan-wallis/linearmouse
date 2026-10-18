@@ -77,6 +77,8 @@ enum ConnectedBatteryDeviceInventory {
             return []
         }
 
+        MChoseBattery.retainLastKnownLevels(for: hidDevices)
+
         var results = [ConnectedBatteryDeviceInfo]()
         var seen = Set<String>()
         let appleBatterySnapshots = appleBluetoothBatterySnapshots()
@@ -187,7 +189,7 @@ enum ConnectedBatteryDeviceInventory {
             return nil
         }
 
-        return MChoseBattery.readBatteryLevel(from: hidDevice)
+        return MChoseBattery.batteryLevel(from: hidDevice)
     }
 
     private static func getProperty<T>(_ key: String, from device: IOHIDDevice) -> T? {

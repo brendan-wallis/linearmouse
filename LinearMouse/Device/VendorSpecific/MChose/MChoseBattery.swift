@@ -66,8 +66,41 @@ enum MChoseBattery {
         )
     }
 
+    /// The dongle stops relaying requests while the mouse sleeps, so the last
+    /// reading is kept for as long as the dongle itself stays connected.
+    private static let lastKnownLevelsLock = NSLock()
+    private static var lastKnownLevels = [UInt64: Int]()
+
     /// Blocks while the dongle relays the request to the mouse. Call off the main thread.
-    static func readBatteryLevel(from device: IOHIDDevice) -> Int? {
+    static func batteryLevel(from device: IOHIDDevice) -> Int? {
+        var entryID: UInt64 = 0
+        guard IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &entryID) == KERN_SUCCESS else {
+            return readBatteryLevel(from: device)
+        }
+
+        let level = readBatteryLevel(from: device)
+        lastKnownLevelsLock.lock()
+        defer { lastKnownLevelsLock.unlock() }
+        if let level {
+            lastKnownLevels[entryID] = level
+            return level
+        }
+        return lastKnownLevels[entryID]
+    }
+
+    /// Forgets readings from dongles that are no longer connected.
+    static func retainLastKnownLevels(for devices: Set<IOHIDDevice>) {
+        let entryIDs = Set(devices.compactMap { device -> UInt64? in
+            var entryID: UInt64 = 0
+            return IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &entryID) == KERN_SUCCESS
+                ? entryID : nil
+        })
+        lastKnownLevelsLock.lock()
+        defer { lastKnownLevelsLock.unlock() }
+        lastKnownLevels = lastKnownLevels.filter { entryIDs.contains($0.key) }
+    }
+
+    private static func readBatteryLevel(from device: IOHIDDevice) -> Int? {
         guard IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone)) == kIOReturnSuccess else {
             return nil
         }
